@@ -42,8 +42,16 @@ jobs:
           aws-access-key-id: ${{ secrets.EC2_USER }}
           aws-secret-access-key: ${{ secrets.EC2_KEY }}
           aws-region: ap-northeast-2
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Test SSM connection
+        run: |
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"instanceIds","Values":["i-041c523ce6418a081"]}]' \
+            --parameters '{"commands":["echo \"Hello, World!\""]}' \
+            --timeout-seconds 600 \
+            --max-concurrency "50" \
+            --max-errors "0" \
+            --output text
 
         
