@@ -43,12 +43,34 @@ jobs:
           aws-secret-access-key: ${{ secrets.EC2_KEY }}
           aws-region: ap-northeast-2
 
-      - name: Test SSM connection
+      - name: Stop existing Docker container (if running)
+        run: |
+          CONTAINER_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"instanceIds","Values":["i-041c523ce6418a081"]}]' \
+            --parameters '{"commands":["docker ps -q -f ancestor=needidcard/wanted_market:latest"]}' \
+            --timeout-seconds 600 \
+            --max-concurrency "50" \
+            --max-errors "0" \
+            --output text | awk '{print $1}')
+          
+          if [ ! -z "$CONTAINER_ID" ]; then
+            aws ssm send-command \
+              --document-name "AWS-RunShellScript" \
+              --targets '[{"Key":"instanceIds","Values":["i-041c523ce6418a081"]}]' \
+              --parameters '{"commands":["docker stop $CONTAINER_ID"]}' \
+              --timeout-seconds 600 \
+              --max-concurrency "50" \
+              --max-errors "0" \
+              --output text
+          fi
+
+      - name: Transfer Docker image from Docker Hub to EC2 via SSM
         run: |
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --targets '[{"Key":"instanceIds","Values":["i-041c523ce6418a081"]}]' \
-            --parameters '{"commands":["echo \"Hello, World!\""]}' \
+            --parameters '{"commands":["docker pull needidcard/wanted_market:latest && docker run -d needidcard/wanted_market:latest"]}' \
             --timeout-seconds 600 \
             --max-concurrency "50" \
             --max-errors "0" \
