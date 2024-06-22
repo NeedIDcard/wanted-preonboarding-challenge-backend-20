@@ -25,7 +25,7 @@ jobs:
       - name: Build and push Docker image
         run: |
           docker build -t wanted_market:latest .
-          docker tag my-django-app:latest ${{ secrets.DOCKER_USERNAME }}/wanted_market:latest
+          docker tag wanted_market:latest ${{ secrets.DOCKER_USERNAME }}/wanted_market:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/wanted_market:latest
 
   deploy:
@@ -36,20 +36,44 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Deploy to EC2
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
-          EC2_KEY: ${{ secrets.EC2_KEY }}
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.EC2_USER }}
+          aws-secret-access-key: ${{ secrets.EC2_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Stop existing Docker container (if running)
         run: |
-          echo "${{ secrets.EC2_KEY }}" > ec2_key.pem
-          chmod 600 ec2_key.pem
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem docker-compose.yml $EC2_USER@$EC2_HOST:/home/$EC2_USER/
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_HOST << 'EOF'
-            docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
-            docker pull $DOCKER_USERNAME/my-django-app:latest
-            docker-compose down
-            docker-compose up -d
-          EOF
+          CONTAINER_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"instanceIds","Values":["i-041c523ce6418a081"]}]' \
+            --parameters '{"commands":["docker ps -q -f ancestor=needidcard/wanted_market:latest"]}' \
+            --timeout-seconds 600 \
+            --max-concurrency "50" \
+            --max-errors "0" \
+            --output text | awk '{print $1}')
+          
+          if [ ! -z "$CONTAINER_ID" ]; then
+            aws ssm send-command \
+              --document-name "AWS-RunShellScript" \
+              --targets '[{"Key":"instanceIds","Values":["i-041c523ce6418a081"]}]' \
+              --parameters '{"commands":["docker stop $CONTAINER_ID"]}' \
+              --timeout-seconds 600 \
+              --max-concurrency "50" \
+              --max-errors "0" \
+              --output text
+          fi
+
+      - name: Transfer Docker image from Docker Hub to EC2 via SSM
+        run: |
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"instanceIds","Values":["i-041c523ce6418a081"]}]' \
+            --parameters '{"commands":["docker pull needidcard/wanted_market:latest && docker run -d -p 8080:80 --name market needidcard/wanted_market:latest"]}' \
+            --timeout-seconds 600 \
+            --max-concurrency "50" \
+            --max-errors "0" \
+            --output text
+
+        
