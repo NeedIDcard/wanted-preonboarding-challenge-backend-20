@@ -70,7 +70,7 @@ jobs:
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --targets '[{"Key":"instanceIds","Values":["i-041c523ce6418a081"]}]' \
-            --parameters '{"commands":["docker pull needidcard/wanted_market:latest && docker run -d needidcard/wanted_market:latest"]}' \
+            --parameters '{"commands":["docker pull needidcard/wanted_market:latest && docker run -d -p 8080:80 --name market needidcard/wanted_market:latest"]}' \
             --timeout-seconds 600 \
             --max-concurrency "50" \
             --max-errors "0" \
