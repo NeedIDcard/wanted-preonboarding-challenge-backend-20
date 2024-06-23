@@ -48,11 +48,13 @@ jobs:
           CONTAINER_ID=$(aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --targets '[{"Key":"instanceIds","Values":["i-041c523ce6418a081"]}]' \
-            --parameters '{"commands":["docker ps -q -f ancestor=needidcard/wanted_market:latest"]}' \
+            --parameters '{"commands":["docker ps -q -f name=market"]}' \
             --timeout-seconds 600 \
             --max-concurrency "50" \
             --max-errors "0" \
             --output text | awk '{print $1}')
+
+          echo "Containor ID : $CONTAINER_ID"
           
           if [ ! -z "$CONTAINER_ID" ]; then
             aws ssm send-command \
