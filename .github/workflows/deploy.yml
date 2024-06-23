@@ -52,7 +52,7 @@ jobs:
             --timeout-seconds 600 \
             --max-concurrency "50" \
             --max-errors "0" \
-            --output text)
+            --output text | awk 'NR==6 {print $2}')
 
           echo "Containor ID : $CONTAINER_ID"
           
