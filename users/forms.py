@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from users.models import User
 class LoginForm(forms.Form):
     username = forms.CharField(min_length=3)
-    password = forms.CharField(min_length=4)
+    password = forms.CharField(min_length=4, widget=forms.PasswordInput)
 
 class SignupForm(forms.Form):
     username = forms.CharField()
